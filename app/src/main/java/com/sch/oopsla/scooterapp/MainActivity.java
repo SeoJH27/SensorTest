@@ -1,6 +1,5 @@
 package com.sch.oopsla.scooterapp;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
@@ -9,31 +8,40 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-
-import androidx.annotation.ColorInt;
 import androidx.appcompat.app.AppCompatActivity;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
-    TextView text, sensing, list;
+    //view
+    TextView text, sensing, list, time;
     Button button, CKbutton, REbutton;
     boolean buttonF = false;
     int i = 1;
 
+    // timer
+    private Timer timer;
+    TimerTask timerTask;
+    boolean timeF = false;
+    TimerClass tc;
+
+    //senser
     private SensorManager mSensorManager = null;
     private Sensor mGyroscopeSensor = null;
     private Sensor mAccelerometer = null;
     UserSensorListner userSensorListner;
 
-    /*Sensor variables*/
+    // Sensor variables
     private float[] mGyroValues = new float[3];
     private float[] mAccValues = new float[3];
     private double mAccPitch, mAccRoll;
-
-    private float a = 0.2f;
+    private final float a = 0.2f;
     private static final float NS2S = 1.0f/1000000000.0f;
     private double pitch = 0, roll = 0;
     private double timestamp;
@@ -47,12 +55,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     public void onAccuracyChanged(Sensor sensor, int accuracy){}
     public void onSensorChanged(SensorEvent event){}
 
-
     protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         text = (TextView) findViewById(R.id.testView2);
+        time = (TextView) findViewById(R.id.time);
         sensing = (TextView) findViewById(R.id.sensing);
         button = (Button) findViewById(R.id.button);
         list = (TextView) findViewById(R.id.list);
@@ -69,7 +77,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             public void onClick(View view) {
                 if (buttonF == false){
                     button.setBackgroundColor(Color.parseColor("#FF0000"));
-                    button.setText("시작");
+                    button.setText("종료");
                     button.setTextColor(getResources().getColor(R.color.black));
                         if (mAccelerometer != null){
                             mSensorManager.registerListener(userSensorListner, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
@@ -78,19 +86,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                             mSensorManager.registerListener(userSensorListner, mGyroscopeSensor, SensorManager.SENSOR_DELAY_NORMAL);
                         }
                     buttonF = true;
-
-
-                    if ((roll > -40.0 && roll <90)){
-                        sensing.setTextColor(Color.parseColor("#000000"));
-                        sensing.setTextSize(14);
-                        sensing.setText("정상");
-                    }
-                    else{
-                        sensing.setTextSize(20);
-                        sensing.setTextColor(Color.parseColor("#FF0000"));
-                        sensing.setText("비정상");
-                    }
-
                 }
                 else{
                     mSensorManager.unregisterListener(userSensorListner);
@@ -98,6 +93,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     button.setText("보정");
                     button.setTextColor(getResources().getColor(R.color.white));
                     buttonF = false;
+                    time.setText("time");
+                    time.setTextSize(14);
+                    time.setTextColor(getResources().getColor(R.color.black));
                 }
             }
         });
@@ -159,6 +157,49 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         roll = roll + (temp*dt);
 
         text.setText("roll : "+String.format("%.2f", roll)+"\t\t\tpitch : "+String.format("%.2f", pitch));
+
+        if( ( 70 < roll && roll < 180 && -180 < pitch && pitch < -80) ||
+                ( -20 < roll && roll < 0 && 60 < pitch && pitch < 90) ||
+                ( -180 < roll && roll < -70 && 70 < pitch && pitch < 180) ||
+                ( 140 < Math.abs(roll) && 140 < Math.abs(pitch)         ) ||
+                (-90 < roll && roll < -50 && 0 < pitch && pitch < -20) ||
+                (-20 < roll && roll < 10 && -90 < pitch && pitch < -50)){
+            sensing.setTextSize(20);
+            sensing.setTextColor(Color.parseColor("#FF0000"));
+            sensing.setText("비정상");
+            timeF = true;
+
+            timerTask = new TimerTask() {
+                @Override
+                public void run() {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            time.setText("신고하세요!");
+                            time.setTextColor(Color.parseColor("#FF0000"));
+                            time.setTextSize(30);
+                            timer.cancel();
+                            timeF = false;
+                        }
+                    });
+                }
+            };
+
+            tc = new TimerClass();
+            timer = new Timer();
+            timer.schedule(timerTask, 5000, 1000);
+            tc.run();
+            Log.v("DDDDDD", timeF+"");
+        }
+        else{
+            sensing.setTextColor(Color.parseColor("#000000"));
+            sensing.setTextSize(14);
+            sensing.setText("정상");
+            if(timeF){
+                timeF = false;
+                timer.cancel();
+            }
+        }
     }
 
     public class UserSensorListner implements SensorEventListener{
@@ -199,5 +240,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+    }
+
+    public class TimerClass {
+        public void run(){
+
+        }
     }
 }
