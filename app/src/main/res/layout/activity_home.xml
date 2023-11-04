@@ -27,7 +27,7 @@
         android:layout_height="wrap_content"
         android:id="@+id/time"
         android:layout_gravity="center"
-        android:text="time"
+        android:text="안전함"
         />
 
     <TextView

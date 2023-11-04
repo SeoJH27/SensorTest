@@ -20,16 +20,18 @@ import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
     //view
-    TextView text, sensing, list, time;
+    TextView text, sensing, list, time, textC;
     Button button, CKbutton, REbutton;
     boolean buttonF = false;
     int i = 1;
 
-    // timer
-    private Timer timer;
-    TimerTask timerTask;
-    boolean timeF = false;
-    TimerClass tc;
+    // TimerHandler : 지정한 시간만큼 뒤에 메세지를 전송
+    //                타이머를 수시로 시작 & 중지해야하고 정확한 시간 간격을 필요로 하지 않을 때 사용
+    TimerHandler timerHandler = new TimerHandler();
+    private static final int MESSAGE_TIMER_START = 100;
+    private static final int MESSAGE_TIMER_COMPLETE = 101;
+    private static final int MESSAGE_TIMER_STOP = 102;
+    private boolean flag = false;
 
     //senser
     private SensorManager mSensorManager = null;
@@ -47,6 +49,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private double timestamp;
     private double dt;
     private double temp;
+    private double currentRoll, currentPitch;
 
     private boolean gyroRunning;
     private boolean accRunning;
@@ -93,9 +96,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     button.setText("보정");
                     button.setTextColor(getResources().getColor(R.color.white));
                     buttonF = false;
-                    time.setText("time");
-                    time.setTextSize(14);
-                    time.setTextColor(getResources().getColor(R.color.black));
+                    currentRoll = roll;
+                    currentPitch = pitch;
                 }
             }
         });
@@ -158,46 +160,36 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         text.setText("roll : "+String.format("%.2f", roll)+"\t\t\tpitch : "+String.format("%.2f", pitch));
 
-        if( ( 70 < roll && roll < 180 && -180 < pitch && pitch < -80) ||
-                ( -20 < roll && roll < 0 && 60 < pitch && pitch < 90) ||
-                ( -180 < roll && roll < -70 && 70 < pitch && pitch < 180) ||
-                ( 140 < Math.abs(roll) && 140 < Math.abs(pitch)         ) ||
-                (-90 < roll && roll < -50 && 0 < pitch && pitch < -20) ||
-                (-20 < roll && roll < 10 && -90 < pitch && pitch < -50)){
+        /*
+        if(( 70 < roll && roll < 180 && -180 < pitch && pitch < -80 ) ||
+        ( -20 < roll && roll < 0 && 60 < pitch && pitch < 90 ) ||
+        ( -180 < roll && roll < -70 && 70 < pitch && pitch < 180 ) ||
+        ( 140 < Math.abs(roll) && 140 < Math.abs(pitch) ) ||
+        ( -90 < roll && roll < -50 && 0 < pitch && pitch < -20 ) ||
+        ( -20 < roll && roll < 10 && -90 < pitch && pitch < -50 ) )
+         */
+
+        if( (70 < Math.abs(roll) && Math.abs(roll) < 180 && 70 < Math.abs(pitch) && Math.abs(pitch) < 180) ||
+                (0 < Math.abs(roll) && Math.abs(roll) < 20 && 50 < Math.abs(pitch) && Math.abs(pitch) < 90) ||
+                ( -90 < roll && roll < -50 && 0 < pitch && pitch < -20 )){
             sensing.setTextSize(20);
             sensing.setTextColor(Color.parseColor("#FF0000"));
             sensing.setText("비정상");
-            timeF = true;
-
-            timerTask = new TimerTask() {
-                @Override
-                public void run() {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            time.setText("신고하세요!");
-                            time.setTextColor(Color.parseColor("#FF0000"));
-                            time.setTextSize(30);
-                            timer.cancel();
-                            timeF = false;
-                        }
-                    });
-                }
-            };
-
-            tc = new TimerClass();
-            timer = new Timer();
-            timer.schedule(timerTask, 5000, 1000);
-            tc.run();
-            Log.v("DDDDDD", timeF+"");
+            if(flag == false){
+                flag = true;
+                timerHandler.removeMessages(MESSAGE_TIMER_STOP);
+                timerHandler.sendEmptyMessage(MESSAGE_TIMER_START);
+            }
         }
         else{
             sensing.setTextColor(Color.parseColor("#000000"));
             sensing.setTextSize(14);
             sensing.setText("정상");
-            if(timeF){
-                timeF = false;
-                timer.cancel();
+            if(flag == true){
+                flag = false;
+                timerHandler.removeMessages(MESSAGE_TIMER_COMPLETE);
+                timerHandler.removeMessages(MESSAGE_TIMER_START);
+                timerHandler.sendEmptyMessage(MESSAGE_TIMER_STOP);
             }
         }
     }
@@ -216,7 +208,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                     if(!gyroRunning)
                         gyroRunning = true;
-
                     break;
 
                 /** ACCELEROMETER */
@@ -227,7 +218,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                     if(!accRunning)
                         accRunning = true;
-
                     break;
 
             }
@@ -242,9 +232,28 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         public void onAccuracyChanged(Sensor sensor, int accuracy) {}
     }
 
-    public class TimerClass {
-        public void run(){
-
+    public class TimerHandler extends Handler {
+        @Override
+        public void handleMessage(Message msg){
+            switch (msg.what){
+                case MESSAGE_TIMER_START:
+                    time.setText("신고 대기 중...");
+                    time.setTextSize(14);
+                    time.setTextColor(getResources().getColor(R.color.red));
+                    this.sendEmptyMessageDelayed(MESSAGE_TIMER_COMPLETE, 5000);
+                    break;
+                case MESSAGE_TIMER_COMPLETE:
+                    time.setTextColor(getResources().getColor(R.color.red));
+                    time.setTextSize(16);
+                    time.setText("신고하세요!");
+                    this.removeMessages(MESSAGE_TIMER_COMPLETE);
+                    break;
+                case MESSAGE_TIMER_STOP:
+                    time.setTextSize(14);
+                    time.setTextColor(getResources().getColor(R.color.black));
+                    time.setText("안전함");
+                    break;
+            }
         }
     }
 }
